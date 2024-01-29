@@ -9,12 +9,17 @@ bool ModeAuto::_enter()
     if (plane.previous_mode == &plane.mode_guided &&
         quadplane.guided_wait_takeoff_on_mode_enter) {
         if (!plane.mission.starts_with_takeoff_cmd()) {
-            gcs().send_text(MAV_SEVERITY_ERROR,"Takeoff waypoint required");
+            gcs().send_text(MAV_SEVERITY_ERROR, "Takeoff waypoint required");
+
+            // Set home location as the takeoff waypoint at a desired altitude
+            const float desired_takeoff_altitude = 50.0; // Set your desired altitude here
+            plane.mission.set_takeoff_location_from_home(desired_takeoff_altitude);
+
             quadplane.guided_wait_takeoff = true;
             return false;
         }
     }
-    
+
     if (plane.quadplane.available() && plane.quadplane.enable == 2) {
         plane.auto_state.vtol_mode = true;
     } else {
@@ -89,7 +94,7 @@ void ModeAuto::update()
         plane.calc_nav_pitch();
 
         // allow landing to restrict the roll limits
-        plane.nav_roll_cd = plane.landing.constrain_roll(plane.nav_roll_cd, plane.g.level_roll_limit*100UL);
+        plane.nav_roll_cd = plane.landing.constrain_roll(plane.nav_roll_cd, plane.g.level_roll_limit * 100UL);
 
         if (plane.landing.is_throttle_suppressed()) {
             // if landing is considered complete throttle is never allowed, regardless of landing type
@@ -123,21 +128,20 @@ void ModeAuto::navigate()
     }
 }
 
-
 bool ModeAuto::does_auto_navigation() const
 {
 #if AP_SCRIPTING_ENABLED
-   return (!plane.nav_scripting_active());
+    return (!plane.nav_scripting_active());
 #endif
-   return true;
+    return true;
 }
 
 bool ModeAuto::does_auto_throttle() const
 {
 #if AP_SCRIPTING_ENABLED
-   return (!plane.nav_scripting_active());
+    return (!plane.nav_scripting_active());
 #endif
-   return true;
+    return true;
 }
 
 // returns true if the vehicle can be armed in this mode
@@ -146,7 +150,7 @@ bool ModeAuto::_pre_arm_checks(size_t buflen, char *buffer) const
 #if HAL_QUADPLANE_ENABLED
     if (plane.quadplane.enabled()) {
         if (plane.quadplane.option_is_set(QuadPlane::OPTION::ONLY_ARM_IN_QMODE_OR_AUTO) &&
-                !plane.quadplane.is_vtol_takeoff(plane.mission.get_current_nav_cmd().id)) {
+            !plane.quadplane.is_vtol_takeoff(plane.mission.get_current_nav_cmd().id)) {
             hal.util->snprintf(buffer, buflen, "not in VTOL takeoff");
             return false;
         }
@@ -177,6 +181,5 @@ void ModeAuto::run()
     } else {
         // Normal flight, run base class
         Mode::run();
-
     }
 }
